@@ -1,0 +1,4 @@
+node_modules/
+mac/dist/
+*.zip
+.DS_Store

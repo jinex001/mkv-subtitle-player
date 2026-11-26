@@ -1,0 +1,525 @@
+<title>MKV 자막 플레이어</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src file: blob:">
+<style>
+/* 상영관: 어두운 화면 하나, 영상 아래 얇은 조작대. 한 가지 어두운 톤만 쓰는 의도된 단일 테마 */
+:root{
+  --bg:#0E0F12; --panel:#17191E; --line:#262931; --fg:#E9E7E1; --dim:#8D8F96;
+  --accent:#F2C14E; --warn:#E8805A;
+  --ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --cue:28px; --cuebg:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1100px;margin:0 auto;padding-block:18px 40px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:17px;font-weight:700;margin:0;letter-spacing:-.01em}
+h1 b{color:var(--accent);font-weight:700}
+.hint{color:var(--dim);font-size:13px}
+.stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;max-width:100%}
+.stage video{width:100%;height:100%;display:block;background:#000}
+video::cue{font-family:var(--ui);font-size:var(--cue);font-weight:500;line-height:1.35;color:#fff;background:var(--cuebg)}
+.drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  text-align:center;padding:24px;border:2px dashed var(--line);border-radius:14px;color:var(--dim);cursor:pointer;background:var(--bg)}
+.drop strong{color:var(--fg);font-size:18px;font-weight:700}
+.drop.over{border-color:var(--accent);color:var(--fg)}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:14px 16px}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.lbl{font-size:12px;color:var(--dim);letter-spacing:.04em}
+button,.btn,select{font:inherit;font-size:14px;color:var(--fg);background:#22252C;border:1px solid var(--line);
+  border-radius:9px;padding:7px 12px;cursor:pointer}
+button:hover,.btn:hover{border-color:#3a3e48}
+button:focus-visible,.btn:focus-within,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip[aria-pressed="true"]{background:var(--accent);color:#141414;border-color:var(--accent);font-weight:700}
+.btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.btn{position:relative;display:inline-flex}
+input[type=range]{accent-color:var(--accent);width:120px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:5.5ch;text-align:center}
+.status{font-size:13px;color:var(--dim);min-height:1.5em}
+.status.err{color:var(--warn)}
+.prog{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.notes{color:var(--dim);font-size:13px;margin:0;padding-left:18px}
+.notes li{margin:2px 0}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:0 5px}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>MKV <b>자막</b> 플레이어</h1>
+    <span class="hint">⌘O 영상 열기 · ⇧⌘O 자막 추가 · 영화 옆 같은 이름의 자막은 자동으로 붙어요</span>
+  </header>
+
+  <div class="stage" id="stage">
+    <video id="v" controls playsinline x-webkit-airplay="allow"></video>
+    <label class="drop" id="drop" for="fv">
+      <strong>MKV 파일을 여기에 놓거나 눌러서 고르세요</strong>
+      <span>안에 든 글자 자막(SRT·ASS)과 옆에 있는 같은 이름의 자막 파일은 자동으로 읽어요. 따로 있는 .srt / .smi / .vtt / .ass 파일도 함께 놓을 수 있어요.</span>
+    </label>
+  </div>
+  <div class="prog" id="prog" hidden><i id="progi"></i></div>
+
+  <div class="bar">
+    <div class="grp">
+      <label class="btn">영상 열기<input id="fv" type="file" accept=".mkv,.webm,.mp4,.mov,video/*" multiple></label>
+      <label class="btn">자막 파일 추가<input id="fs" type="file" accept=".srt,.smi,.sami,.vtt,.ass,.ssa,text/*" multiple></label>
+      <select id="enc" aria-label="자막 파일 글자 인코딩" title="자막 글자가 깨지면 바꿔 보세요">
+        <option value="auto">인코딩 자동</option>
+        <option value="utf-8">UTF-8</option>
+        <option value="euc-kr">EUC-KR (한국어)</option>
+        <option value="windows-1252">Windows-1252 (서유럽)</option>
+        <option value="utf-16le">UTF-16</option>
+      </select>
+    </div>
+    <div class="grp" role="group" aria-label="자막 선택">
+      <span class="lbl">자막</span>
+      <span id="tracks" class="grp"><button class="chip" aria-pressed="true" data-i="-1">끔</button></span>
+    </div>
+    <div class="grp">
+      <span class="lbl">자막 크기</span>
+      <span class="grp" id="sizes" role="group" aria-label="자막 크기 고르기">
+        <button class="chip" data-s="4">작게</button>
+        <button class="chip" data-s="5.5">보통</button>
+        <button class="chip" data-s="7">크게</button>
+        <button class="chip" data-s="9">아주 크게</button>
+      </span>
+      <button id="szm" title="자막 작게 (−)" aria-label="자막 조금 작게">A−</button>
+      <input id="size" type="range" min="3" max="12" step="0.5" value="5.5" aria-label="자막 크기 (화면 높이 대비 %)">
+      <button id="szp" title="자막 크게 (+)" aria-label="자막 조금 크게">A+</button>
+    </div>
+    <div class="grp" role="group" aria-label="자막 싱크">
+      <span class="lbl">싱크</span>
+      <button id="sm" title="자막을 0.25초 빠르게 (Z)">−0.25s</button>
+      <span class="mono" id="off">0.00s</span>
+      <button id="sp" title="자막을 0.25초 늦게 (X)">+0.25s</button>
+      <button id="s0">초기화</button>
+    </div>
+    <div class="grp">
+      <label class="lbl" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="bgc" checked> 자막 배경</label>
+    </div>
+  </div>
+  <div class="status" id="st" role="status"></div>
+
+  <ul class="notes">
+    <li>Finder에서 MKV를 오른쪽 클릭 → 다음으로 열기, 또는 Dock 아이콘에 끌어다 놓아도 열려요.</li>
+    <li>Apple TV로 볼 땐 제어 센터의 <b>화면 미러링</b>을 켜고 전체 화면(F)으로 보세요. 자막도 그대로 보여요.</li>
+    <li>음성이 AC-3·DTS면 소리가 안 날 수 있고, H.265(HEVC) 영상은 기기에 따라 안 나와요.</li>
+    <li>그림 자막(PGS, VobSub)은 못 읽어요. 그럴 땐 .srt나 .smi 파일을 따로 추가하세요.</li>
+    <li>단축키: <kbd>Space</kbd> 재생/멈춤 · <kbd>←</kbd><kbd>→</kbd> 5초 · <kbd>Z</kbd><kbd>X</kbd> 싱크 · <kbd>−</kbd><kbd>+</kbd> 자막 크기 · <kbd>F</kbd> 전체 화면</li>
+  </ul>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const v=$('v'), st=$('st');
+let subs=[];          // {label, lang, cues:[{s,e,t}], track}
+let active=-1, offset=0, videoURL=null, scanGen=0;
+
+function status(msg,err){st.textContent=msg||'';st.classList.toggle('err',!!err)}
+function store(k,val){try{localStorage.setItem(k,val)}catch(e){}}
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+
+/* ---------- 자막 표시 ---------- */
+function cueText(t){
+  // 허용: <i><b><u>. 나머지 태그는 지우고 &는 이스케이프
+  t=t.replace(/&(?![a-z]+;|#\d+;)/gi,'&amp;');
+  t=t.replace(/<\/?([a-z]+)[^>]*>/gi,(m,tag)=>/^(i|b|u)$/i.test(tag)?m.replace(/\s.*?>/,'>'):'');
+  return t;
+}
+function makeTrack(sub){
+  const tr=v.addTextTrack('subtitles',sub.label,sub.lang||'');
+  tr.mode='disabled';
+  sub.track=tr; sub.live=[];
+  fill(sub);
+}
+function fill(sub){
+  const tr=sub.track; if(!tr) return;
+  const was=tr.mode; if(was==='disabled') tr.mode='hidden';
+  for(const c of sub.live) try{tr.removeCue(c)}catch(e){}
+  sub.live=[];
+  for(const c of sub.cues){
+    const s=Math.max(0,c.s+offset), e=Math.max(s+0.05,c.e+offset);
+    const cue=new VTTCue(s,e,cueText(c.t));
+    cue.line=-2; try{tr.addCue(cue);sub.live.push(cue)}catch(e){}
+  }
+  tr.mode=was;
+}
+function addCues(sub,list){ // 스캔 중에 조금씩 추가
+  for(const c of list){
+    sub.cues.push(c);
+    if(sub.track){const s=Math.max(0,c.s+offset);const cue=new VTTCue(s,Math.max(s+0.05,c.e+offset),cueText(c.t));cue.line=-2;
+      const was=sub.track.mode;if(was==='disabled')sub.track.mode='hidden';try{sub.track.addCue(cue);sub.live.push(cue)}catch(e){}sub.track.mode=was;}
+  }
+}
+function select(i){
+  active=i;
+  subs.forEach((s,k)=>{if(s.track) s.track.mode=(k===i?'showing':'disabled')});
+  renderChips();
+}
+function renderChips(){
+  const box=$('tracks'); box.innerHTML='';
+  const mk=(i,txt)=>{const b=document.createElement('button');b.className='chip';b.textContent=txt;b.dataset.i=i;
+    b.setAttribute('aria-pressed',String(i===active));b.onclick=()=>select(i);box.appendChild(b)};
+  mk(-1,'끔');
+  subs.forEach((s,i)=>mk(i,s.label+(s.cues.length?'':' …')));
+}
+function addSub(sub,autoSelect){
+  subs.push(sub); makeTrack(sub);
+  if(autoSelect && active<0) select(subs.length-1); else renderChips();
+}
+function langName(l){
+  const m={kor:'한국어',ko:'한국어',eng:'영어',en:'영어',ger:'독일어',deu:'독일어',de:'독일어',jpn:'일본어',ja:'일본어',
+    fre:'프랑스어',fra:'프랑스어',fr:'프랑스어',spa:'스페인어',es:'스페인어',chi:'중국어',zho:'중국어',zh:'중국어',und:''};
+  return m[l]??l;
+}
+
+/* ---------- 자막 파일 읽기 ---------- */
+function ts(str){ // 00:01:02,345 / 01:02.345 / 0:01:02.34
+  const p=str.trim().replace(',','.').split(':').map(Number);
+  let s=0; for(const x of p) s=s*60+x; return s;
+}
+function parseSRTVTT(text){
+  const out=[]; text=text.replace(/\r/g,'').replace(/^﻿/,'');
+  const re=/((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})[^\n]*\n([\s\S]*?)(?=\n\s*\n|$)/g;
+  let m; while((m=re.exec(text))){
+    const t=m[3].replace(/\n\d+\s*$/,'').trim();
+    if(t) out.push({s:ts(m[1]),e:ts(m[2]),t});
+  }
+  return out;
+}
+function assText(t){
+  return t.replace(/\{[^}]*\}/g,'').replace(/\\N/g,'\n').replace(/\\n/g,'\n').replace(/\\h/g,' ').trim();
+}
+function parseASS(text){
+  const out=[]; let fmt=null, inEv=false;
+  for(const raw of text.replace(/\r/g,'').split('\n')){
+    const line=raw.trim();
+    if(/^\[events\]/i.test(line)){inEv=true;continue}
+    if(/^\[/.test(line)){inEv=false;continue}
+    if(!inEv) continue;
+    if(/^format:/i.test(line)){fmt=line.slice(7).split(',').map(s=>s.trim().toLowerCase());continue}
+    if(/^dialogue:/i.test(line)&&fmt){
+      const body=line.slice(line.indexOf(':')+1), n=fmt.length;
+      const parts=[]; let rest=body;
+      for(let i=0;i<n-1;i++){const k=rest.indexOf(',');if(k<0)break;parts.push(rest.slice(0,k));rest=rest.slice(k+1)}
+      parts.push(rest);
+      const t=assText(parts[fmt.indexOf('text')]||'');
+      if(t) out.push({s:ts(parts[fmt.indexOf('start')]),e:ts(parts[fmt.indexOf('end')]),t});
+    }
+  }
+  return out;
+}
+/* SMI(SAMI): <SYNC Start=ms><P Class=KRCC>글자 … 언어(Class)마다 따로 나눔 */
+const entBox=document.createElement('textarea');
+function decodeEnt(t){entBox.innerHTML=t.replace(/</g,'\u0001');return entBox.value.replace(/\u0001/g,'<')}
+function parseSMI(text){
+  text=text.replace(/\r/g,'');
+  // 스타일에서 Class별 이름·언어 읽기: .KRCC { Name:Korean; lang:ko-KR; }
+  const info={};
+  const sm=/\.([A-Za-z0-9_-]+)\s*\{([^}]*)\}/g; let m;
+  const style=(text.match(/<style[\s\S]*?<\/style>/i)||[''])[0];
+  while((m=sm.exec(style))){
+    const name=(m[2].match(/name\s*:\s*([^;]+)/i)||[])[1], lang=(m[2].match(/lang\s*:\s*([^;]+)/i)||[])[1];
+    info[m[1].toLowerCase()]={name:name&&name.trim(),lang:lang&&lang.trim().split('-')[0].toLowerCase()};
+  }
+  const byCls={}, order=[];
+  const syncRe=/<sync\b[^>]*\bstart\s*=\s*["']?(-?\d+)[^>]*>([\s\S]*?)(?=<sync\b|<\/body>|$)/gi;
+  while((m=syncRe.exec(text))){
+    const t=+m[1]/1000;
+    const body=m[2];
+    // <P Class=X> 단위로 나눔 (P가 없으면 한 덩어리)
+    const parts=[]; const pRe=/<p\b([^>]*)>([\s\S]*?)(?=<p\b|$)/gi; let pm, any=false;
+    while((pm=pRe.exec(body))){any=true;const c=(pm[1].match(/class\s*=\s*["']?([A-Za-z0-9_-]+)/i)||[])[1]||'default';parts.push([c.toLowerCase(),pm[2]])}
+    if(!any) parts.push(['default',body]);
+    for(const [cls,raw] of parts){
+      let x=raw.replace(/<br\s*\/?>/gi,'\n')
+        .replace(/<(\/?)(i|b|u)\b[^>]*>/gi,'\u0002$1$2\u0003')
+        .replace(/<[^>]*>/g,'');
+      x=decodeEnt(x).replace(/ /g,' ').replace(/[ \t]+/g,' ')
+        .split('\n').map(l=>l.trim()).filter(Boolean).join('\n')
+        .replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\u0002/g,'<').replace(/\u0003/g,'>');
+      if(!byCls[cls]){byCls[cls]=[];order.push(cls)}
+      const list=byCls[cls], prev=list[list.length-1];
+      if(prev&&prev.e==null) prev.e=t;           // 다음 SYNC가 앞 자막의 끝
+      if(x.replace(/<[^>]*>/g,'').trim()) list.push({s:t,e:null,t:x});
+    }
+  }
+  const out=[];
+  for(const cls of order){
+    const cues=byCls[cls].filter(c=>{if(c.e==null)c.e=c.s+4;return c.e>c.s});
+    if(!cues.length) continue;
+    const i=info[cls]||{};
+    let lang=i.lang||(/^kr|^ko/.test(cls)?'ko':/^en/.test(cls)?'en':/^de|^ge/.test(cls)?'de':/^jp|^ja/.test(cls)?'ja':'');
+    out.push({cls,lang,name:i.name,cues});
+  }
+  return out;
+}
+function decodeText(buf){
+  const pick=$('enc').value, u8=new Uint8Array(buf);
+  if(pick!=='auto') return new TextDecoder(pick).decode(u8);
+  if(u8[0]===0xFF&&u8[1]===0xFE) return new TextDecoder('utf-16le').decode(u8);
+  if(u8[0]===0xFE&&u8[1]===0xFF) return new TextDecoder('utf-16be').decode(u8);
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(u8)}catch(e){}
+  // UTF-8이 아니면: 한글 바이트 패턴이 많으면 EUC-KR, 아니면 Windows-1252
+  const kr=new TextDecoder('euc-kr').decode(u8);
+  return /[가-힣]/.test(kr)&&!/\uFFFD/.test(kr.slice(0,4000))?kr:new TextDecoder('windows-1252').decode(u8);
+}
+const lastSubFiles=[];
+async function openSubFile(f,replaceIdxs){
+  const text=decodeText(await f.arrayBuffer());
+  const base=f.name.replace(/\.[^.]+$/,'');
+  let groups;
+  if(/\.(smi|sami)$/i.test(f.name)||/<sami\b|<sync\b/i.test(text.slice(0,20000))){
+    groups=parseSMI(text).map((g,_,all)=>({label:all.length>1?(langName(g.lang)||g.name||g.cls.toUpperCase())+' · '+base:base,lang:g.lang,cues:g.cues}));
+  }else{
+    const cues=/\.(ass|ssa)$/i.test(f.name)||/^\s*\[script info\]/i.test(text)?parseASS(text):parseSRTVTT(text);
+    groups=cues.length?[{label:base,lang:'',cues}]:[];
+  }
+  if(!groups.length){status(`${f.name}: 자막 시간을 못 찾았어요.`,true);return}
+  for(const g of groups){g.cues.sort((a,b)=>a.s-b.s);g.label=g.label.slice(0,28)}
+  if(replaceIdxs){
+    groups.forEach((g,k)=>{const old=subs[replaceIdxs[k]];if(old){old.cues=g.cues;fill(old)}});renderChips();
+  }else{
+    const idxs=[]; const first=subs.length;
+    for(const g of groups){idxs.push(subs.length);addSub(g,false)}
+    lastSubFiles.push({f,idxs});
+    // 한국어가 있으면 그걸 켬
+    const ko=groups.findIndex(g=>g.lang==='ko'||g.lang==='kor');
+    select(first+(ko>=0?ko:0));
+  }
+  const n=groups.map(g=>g.cues.length).reduce((a,b)=>a+b,0);
+  status(`${f.name}: 자막 ${n}개를 불러왔어요`+(groups.length>1?` (언어 ${groups.length}개)`:'')+'.');
+}
+$('enc').onchange=async()=>{ // 인코딩을 바꾸면 따로 추가한 자막 파일을 다시 읽음
+  for(const x of lastSubFiles) await openSubFile(x.f,x.idxs);
+};
+
+/* ---------- MKV 안의 자막 읽기 (EBML) ---------- */
+const DESC=new Set([0x18538067,0x1654AE6B,0xAE,0x6D80,0x6240,0x5034,0x1549A966,0x1F43B675,0xA0]);
+function vlen(b){for(let i=0;i<8;i++) if(b&(0x80>>i)) return i+1; return 0}
+class Reader{
+  constructor(f){this.f=f;this.cs=0;this.buf=new Uint8Array(0);this.CH=8<<20}
+  has(p,n){return p>=this.cs&&p+n<=this.cs+this.buf.length}
+  async ensure(p,n){
+    if(this.has(p,n)||p>=this.f.size) return;
+    const end=Math.min(this.f.size,p+Math.max(n,this.CH));
+    this.buf=new Uint8Array(await this.f.slice(p,end).arrayBuffer());this.cs=p;
+  }
+  at(p){return this.buf[p-this.cs]}
+  sub(p,n){const o=p-this.cs;return this.buf.subarray(o,o+n)}
+}
+function uint(b){let x=0;for(const c of b)x=x*256+c;return x}
+async function inflate(bytes){
+  const ds=new DecompressionStream('deflate');
+  const out=new Response(new Blob([bytes]).stream().pipeThrough(ds));
+  return new Uint8Array(await out.arrayBuffer());
+}
+async function scanMKV(file,gen){
+  const R=new Reader(file), size=file.size, td=new TextDecoder('utf-8');
+  const tracks=[]; let cur=null, scale=1e6, cts=0, last=null;
+  const subByNum=new Map(); let pending=[]; let lastUI=0;
+  const prog=$('prog'), pi=$('progi'); prog.hidden=false;
+  let pos=0;
+  const flush=async()=>{
+    for(const p of pending){
+      const tr=p.tr; let data=p.data;
+      try{
+        if(tr.comp){
+          if(tr.comp.algo===3&&tr.comp.set) {const m=new Uint8Array(tr.comp.set.length+data.length);m.set(tr.comp.set);m.set(data,tr.comp.set.length);data=m}
+          else if(tr.comp.algo===0) data=await inflate(data);
+        }
+      }catch(e){continue}
+      let t=td.decode(data);
+      if(/ASS|SSA/.test(tr.codec)){const k=t.split(',');t=k.length>=9?k.slice(8).join(','):t;t=assText(t)}
+      const s=p.t*scale/1e9, e=p.dur!=null?(p.t+p.dur)*scale/1e9:s+3;
+      if(t.trim()) addCues(tr.sub,[{s,e,t:t.trim()}]);
+    }
+    pending=[];
+  };
+  while(pos<size){
+    if(gen!==scanGen) return;
+    if(!R.has(pos,12)) await R.ensure(pos,12);
+    if(pos>=R.cs+R.buf.length) break;
+    const b0=R.at(pos), il=vlen(b0); if(!il||il>4) break;
+    let id=0; for(let i=0;i<il;i++) id=id*256+R.at(pos+i);
+    const s0=R.at(pos+il), sl=vlen(s0); if(!sl) break;
+    let sz=s0&(0xFF>>sl), allOnes=(sz===(0xFF>>sl));
+    for(let i=1;i<sl;i++){const c=R.at(pos+il+i);sz=sz*256+c;if(c!==0xFF)allOnes=false}
+    const ds=pos+il+sl;
+    if(DESC.has(id)){
+      if(id===0xAE){cur={num:0,type:0,codec:'',lang:'eng',name:'',def:0,forced:0,comp:null};tracks.push(cur)}
+      else if(id===0x5034&&cur) cur.comp={algo:0,set:null};
+      else if(id===0x1F43B675&&cur!==false){ // 첫 클러스터: 트랙 정리
+        cur=false;
+        for(const t of tracks){
+          if(t.type===0x11&&/^S_TEXT\/(UTF8|ASS|SSA|WEBVTT|ASCII)/.test(t.codec)){
+            const ln=langName(t.lang);
+            t.sub={label:(t.name||ln||'자막 '+t.num).slice(0,28),lang:t.lang,cues:[]};
+            subByNum.set(t.num,t);
+          }
+        }
+        report(tracks);
+        const order=[...subByNum.values()].sort((a,b)=>(b.forced?-1:0)-(a.forced?-1:0)||((b.lang==='kor'||b.lang==='ko')-(a.lang==='kor'||a.lang==='ko'))||(b.def-a.def));
+        for(const t of subByNum.values()) addSub(t.sub,false);
+        if(order.length&&active<0) select(subs.indexOf(order[0].sub));
+        if(!subByNum.size) {prog.hidden=true; return}
+      }
+      pos=ds; continue;
+    }
+    if(allOnes) break; // 크기를 모르는 다른 요소: 멈춤
+    const end=ds+sz;
+    switch(id){
+      case 0x2AD7B1: await R.ensure(ds,sz); scale=uint(R.sub(ds,sz)); break;
+      case 0xE7: await R.ensure(ds,sz); cts=uint(R.sub(ds,sz)); break;
+      case 0xA3: case 0xA1: {
+        await R.ensure(ds,Math.min(sz,8));
+        const tl=vlen(R.at(ds)); let tn=R.at(ds)&(0xFF>>tl); for(let i=1;i<tl;i++) tn=tn*256+R.at(ds+i);
+        const tr=subByNum.get(tn);
+        if(tr){
+          await R.ensure(ds,sz);
+          const h=R.sub(ds,sz); let rel=(h[tl]<<8)|h[tl+1]; if(rel&0x8000) rel-=0x10000;
+          const data=h.slice(tl+3);
+          last={tr,data,t:cts+rel,dur:null}; pending.push(last);
+        } else last=null;
+        break;
+      }
+      case 0x9B: if(last){await R.ensure(ds,sz);last.dur=uint(R.sub(ds,sz))} break;
+      default:
+        if(cur){
+          if(id===0xD7||id===0x83||id===0x86||id===0x22B59C||id===0x22B59D||id===0x536E||id===0x88||id===0x55AA||id===0x4254||id===0x4255){
+            await R.ensure(ds,sz); const b=R.sub(ds,sz);
+            if(id===0xD7) cur.num=uint(b); else if(id===0x83) cur.type=uint(b);
+            else if(id===0x86) cur.codec=td.decode(b).replace(/\0+$/,'');
+            else if(id===0x22B59C) cur.lang=td.decode(b).replace(/\0+$/,'');
+            else if(id===0x22B59D) cur.lang=td.decode(b).replace(/\0+$/,'').split('-')[0];
+            else if(id===0x536E) cur.name=td.decode(b).replace(/\0+$/,'');
+            else if(id===0x88) cur.def=uint(b); else if(id===0x55AA) cur.forced=uint(b);
+            else if(id===0x4254&&cur.comp) cur.comp.algo=uint(b);
+            else if(id===0x4255&&cur.comp) cur.comp.set=b.slice();
+          }
+        }
+    }
+    pos=end;
+    if(pending.length>40) await flush();
+    const now=performance.now();
+    if(now-lastUI>150){lastUI=now;pi.style.width=(pos/size*100).toFixed(1)+'%';
+      if(pending.length) await flush(); renderChipsSoft();}
+  }
+  await flush();
+  pi.style.width='100%'; setTimeout(()=>{prog.hidden=true},400);
+  renderChips();
+  const n=[...subByNum.values()].map(t=>`${t.sub.label} ${t.sub.cues.length}개`).join(' · ');
+  if(n) status('자막을 다 읽었어요: '+n);
+}
+let chipT=0;function renderChipsSoft(){if(performance.now()-chipT>1000){chipT=performance.now();renderChips()}}
+let codecNote='';
+function report(tracks){
+  const vid=tracks.filter(t=>t.type===1).map(t=>t.codec), aud=tracks.filter(t=>t.type===2).map(t=>t.codec);
+  const img=tracks.filter(t=>t.type===0x11&&!/^S_TEXT/.test(t.codec)).length;
+  const txt=tracks.filter(t=>t.type===0x11&&/^S_TEXT/.test(t.codec)).length;
+  codecNote=`영상 ${vid.join(', ')||'없음'} · 음성 ${aud.join(', ')||'없음'}`;
+  let m=txt?`글자 자막 ${txt}개를 찾았어요. 읽는 중…`:'파일 안에 글자 자막이 없어요. 자막 파일을 추가해 보세요.';
+  if(img) m+=` (그림 자막 ${img}개는 못 읽어요)`;
+  status(m+' · '+codecNote);
+}
+
+/* ---------- 파일 열기 ---------- */
+function clearSubs(){
+  for(const s of subs) if(s.track){s.track.mode='disabled';for(const c of s.live)try{s.track.removeCue(c)}catch(e){}}
+  subs=[];active=-1;lastSubFiles.length=0;renderChips();
+}
+/* ---------- 맥 앱: 경로로 연 파일 ---------- */
+const MAC=window.mac||null;
+class PathFile{
+  constructor(p){const st=MAC.stat(p);this.path=p;this.name=st.name;this.size=st.size;this.type=''}
+  slice(a,b){const p=this.path,end=Math.min(b==null?this.size:b,this.size),n=Math.max(0,end-a);
+    return{arrayBuffer:async()=>MAC.read(p,a,n).slice().buffer}}
+  async arrayBuffer(){return MAC.read(this.path,0,this.size).slice().buffer}
+}
+function openPaths(paths){
+  const list=[];for(const p of paths){try{list.push(new PathFile(p))}catch(e){status('파일을 열 수 없어요: '+p,true)}}
+  return openFiles(list);
+}
+async function openFiles(files){
+  const list=[...files]; if(!list.length) return;
+  const vid=list.find(f=>/\.(mkv|webm|mp4|m4v|mov)$/i.test(f.name)||/^video\//.test(f.type));
+  const subFiles=list.filter(f=>/\.(srt|smi|sami|vtt|ass|ssa)$/i.test(f.name));
+  if(vid){
+    scanGen++; clearSubs();
+    if(videoURL&&videoURL.startsWith('blob:')) URL.revokeObjectURL(videoURL);
+    const vpath=vid.path||(MAC?MAC.pathFor(vid):'');
+    videoURL=vpath&&MAC?MAC.url(vpath):URL.createObjectURL(vid);
+    // 같은 이름의 자막 파일(영화.srt, 영화.ko.smi …)을 자동으로 붙임
+    if(vpath&&MAC){
+      const have=new Set(subFiles.map(f=>f.name.toLowerCase()));
+      for(const sp of MAC.sidecars(vpath)){const pf=new PathFile(sp);if(!have.has(pf.name.toLowerCase()))subFiles.push(pf)}
+    }
+    v.src=videoURL; $('drop').hidden=true;
+    document.title=vid.name.replace(/\.[^.]+$/,'')+' · MKV 자막 플레이어';
+    status(vid.name+' 여는 중…');
+    v.play().catch(()=>{});
+    if(/\.(mkv|webm)$/i.test(vid.name)) scanMKV(vid,scanGen).catch(e=>status('자막을 읽다가 멈췄어요: '+e.message,true));
+  }
+  for(const f of subFiles) await openSubFile(f);
+}
+$('fv').onchange=e=>{openFiles(e.target.files);e.target.value=''};
+$('fs').onchange=e=>{openFiles(e.target.files);e.target.value=''};
+v.addEventListener('error',()=>{
+  if(!v.src) return;
+  status('이 브라우저가 영상을 재생하지 못해요. Chrome이나 Edge에서 열어 보세요.'+(codecNote?' ('+codecNote+')':''),true);
+});
+const stage=$('stage'), drop=$('drop');
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();if(ev==='drop'||e.target===drop)drop.classList.remove('over')}));
+document.addEventListener('drop',e=>openFiles(e.dataTransfer.files));
+
+/* ---------- 조작 ---------- */
+/* 자막 크기 = 영상 높이의 %. 전체 화면·큰 창에서도 같은 비율로 커짐 */
+let cuePct=5.5;
+function applyCue(){
+  const h=v.getBoundingClientRect().height||v.clientHeight||360;
+  const px=Math.max(12,Math.round(h*cuePct/100));
+  document.documentElement.style.setProperty('--cue',px+'px');
+}
+function setSize(pct){
+  cuePct=Math.min(12,Math.max(3,Math.round(+pct*2)/2));
+  $('size').value=cuePct; store('mkv-cue2',cuePct); applyCue();
+  document.querySelectorAll('#sizes .chip').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.s===cuePct)));
+}
+$('size').oninput=e=>setSize(e.target.value);
+$('szm').onclick=()=>setSize(cuePct-0.5); $('szp').onclick=()=>setSize(cuePct+0.5);
+document.querySelectorAll('#sizes .chip').forEach(b=>b.onclick=()=>setSize(b.dataset.s));
+try{new ResizeObserver(applyCue).observe(v)}catch(e){addEventListener('resize',applyCue)}
+document.addEventListener('fullscreenchange',()=>setTimeout(applyCue,50));
+setSize(+load('mkv-cue2')||5.5);
+function setOff(x){offset=Math.round(x*100)/100;$('off').textContent=(offset>0?'+':'')+offset.toFixed(2)+'s';subs.forEach(fill)}
+$('sm').onclick=()=>setOff(offset-0.25); $('sp').onclick=()=>setOff(offset+0.25); $('s0').onclick=()=>setOff(0);
+$('bgc').onchange=e=>document.documentElement.style.setProperty('--cuebg',e.target.checked?'rgba(0,0,0,.6)':'transparent');
+document.addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.target.type!=='range') return;
+  if(e.key===' '&&e.target.tagName!=='BUTTON'){e.preventDefault();v.paused?v.play():v.pause()}
+  else if(e.key==='ArrowLeft'){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-5)}
+  else if(e.key==='ArrowRight'){e.preventDefault();v.currentTime+=5}
+  else if(e.key==='z'||e.key==='Z') setOff(offset-0.25);
+  else if(e.key==='x'||e.key==='X') setOff(offset+0.25);
+  else if(e.key==='-'||e.key==='_') setSize(cuePct-0.5);
+  else if(e.key==='='||e.key==='+') setSize(cuePct+0.5);
+  else if(e.key==='f'||e.key==='F'){(v.requestFullscreen?v.requestFullscreen():v.webkitEnterFullscreen?.())?.catch?.(()=>{})}
+});
+renderChips();
+if(MAC){
+  MAC.on('open-paths',p=>openPaths(p));
+  MAC.on('menu-open',async()=>{const p=await MAC.pick('video');if(p.length)openPaths(p)});
+  MAC.on('menu-sub',async()=>{const p=await MAC.pick('sub');if(p.length)openPaths(p)});
+}
+window.__mkv={openFiles,subs:()=>subs};
+})();
+</script>
