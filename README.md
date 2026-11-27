@@ -6,6 +6,8 @@ Files open on your device only. Nothing is uploaded, and the page makes no netwo
 
 **Try it: https://jinex001.github.io/mkv-subtitle-player/** · [Mac app](https://github.com/jinex001/mkv-subtitle-player/releases/latest) · [한국어](README.ko.md)
 
+![Demo: an MKV opens with English subtitles, then a Windows-1251 Russian .srt and an EUC-KR Korean .smi are added and display correctly](docs/demo.gif)
+
 ## Features
 
 - **Subtitles inside MKV**: text tracks (SRT, ASS/SSA, WebVTT, including zlib-compressed ones) are read straight from the file while it plays

@@ -4,6 +4,8 @@ MKV 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라�
 
 **바로 써 보기: https://jinex001.github.io/mkv-subtitle-player/** · [맥 앱 받기](https://github.com/jinex001/mkv-subtitle-player/releases/latest) · [English](README.md)
 
+![데모: MKV를 열면 영어 자막이 나오고, Windows-1251 러시아어 .srt와 EUC-KR 한국어 .smi를 넣어도 글자가 깨지지 않음](docs/demo.gif)
+
 ## 할 수 있는 것
 
 - MKV 안에 든 글자 자막(SRT·ASS·SSA·WebVTT, zlib 압축 포함)을 직접 읽어서 표시

@@ -198,7 +198,8 @@ async function openSubFile(f, replaceIdxs) {
     const cues = /\.(ass|ssa)$/i.test(f.name) || /^\s*\[script info\]/i.test(text) ? parseASS(text) : parseSRTVTT(text);
     // movie.ko.srt → Korean
     const tag = (base.match(/\.([a-z]{2,3}(?:-[A-Za-z]{2,4})?)$/i) || [])[1] || '';
-    groups = cues.length ? [{ label: base, lang: langName(tag) ? tag : '', cues }] : [];
+    const known = tag && iso1(tag).length === 2 && langName(tag).toLowerCase() !== tag.toLowerCase();
+    groups = cues.length ? [{ label: known ? langName(tag) + ' · ' + base.slice(0, -tag.length - 1) : base, lang: known ? tag : '', cues }] : [];
   }
   if (!groups.length) { status(t('noTimes', { file: f.name }), true); return; }
   for (const g of groups) { g.cues.sort((a, b) => a.s - b.s); g.label = g.label.slice(0, 32); }
