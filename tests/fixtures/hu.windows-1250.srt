@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:02,500
+Szia, hogy vagy?
+
+2
+00:00:03,000 --> 00:00:05,500
+Nem tudom, mit akarsz mondani.
+
+3
+00:00:06,000 --> 00:00:08,500
+Már hazament, de megígérte, hogy visszajön.
+
+4
+00:00:09,000 --> 00:00:11,500
+Szia, hogy vagy?
+
+5
+00:00:12,000 --> 00:00:14,500
+Nem tudom, mit akarsz mondani.
+
+6
+00:00:15,000 --> 00:00:17,500
+Már hazament, de megígérte, hogy visszajön.
+

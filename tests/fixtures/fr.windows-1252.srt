@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:02,500
+Salut, ça va ?
+
+2
+00:00:03,000 --> 00:00:05,500
+Je ne sais pas ce que tu veux dire.
+
+3
+00:00:06,000 --> 00:00:08,500
+Il est déjà rentré à la maison, mais il a promis de revenir.
+
+4
+00:00:09,000 --> 00:00:11,500
+Salut, ça va ?
+
+5
+00:00:12,000 --> 00:00:14,500
+Je ne sais pas ce que tu veux dire.
+
+6
+00:00:15,000 --> 00:00:17,500
+Il est déjà rentré à la maison, mais il a promis de revenir.
+

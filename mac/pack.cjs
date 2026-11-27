@@ -8,12 +8,12 @@ packager({
   overwrite: true,
   platform: 'darwin',
   arch,
-  name: 'MKV 자막 플레이어',
+  name: 'MKV Subtitle Player',
   executableName: 'MKV Subtitle Player',
   appBundleId: 'app.mkvsubplayer',
   appCategoryType: 'public.app-category.video',
   icon: path.join(__dirname, 'icon.icns'),
-  ignore: [/^\/dist/, /^\/node_modules/, /icon\.png$/, /pack\.cjs$/],
+  ignore: [/^\/dist/, /^\/node_modules/, /icon\.png$/, /pack\.cjs$/, /sync-web\.cjs$/],
   extendInfo: {
     CFBundleDocumentTypes: [{
       CFBundleTypeName: 'Video', CFBundleTypeRole: 'Viewer', LSHandlerRank: 'Alternate',

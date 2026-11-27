@@ -1,14 +1,15 @@
 {
   "name": "mkv-subtitle-player",
-  "productName": "MKV 자막 플레이어",
+  "productName": "MKV Subtitle Player",
   "version": "1.0.0",
-  "description": "MKV 영상을 자막과 함께 보는 맥 앱",
+  "description": "Play MKV videos with subtitles on macOS",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "pack:arm64": "node pack.cjs arm64",
-    "pack:x64": "node pack.cjs x64"
+    "sync": "node sync-web.cjs",
+    "start": "node sync-web.cjs && electron .",
+    "pack:arm64": "node sync-web.cjs && node pack.cjs arm64",
+    "pack:x64": "node sync-web.cjs && node pack.cjs x64"
   },
   "devDependencies": {
     "@electron/packager": "^18.4.4",

@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:02,500
+Bunã ziua, ce mai faci?
+
+2
+00:00:03,000 --> 00:00:05,500
+Nu ºtiu ce vrei sã spui.
+
+3
+00:00:06,000 --> 00:00:08,500
+A plecat deja acasã, dar a promis cã se întoarce.
+
+4
+00:00:09,000 --> 00:00:11,500
+Bunã ziua, ce mai faci?
+
+5
+00:00:12,000 --> 00:00:14,500
+Nu ºtiu ce vrei sã spui.
+
+6
+00:00:15,000 --> 00:00:17,500
+A plecat deja acasã, dar a promis cã se întoarce.
+

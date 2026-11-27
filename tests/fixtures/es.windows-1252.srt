@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:02,500
+¿Hola, cómo estás?
+
+2
+00:00:03,000 --> 00:00:05,500
+No sé qué quieres decir.
+
+3
+00:00:06,000 --> 00:00:08,500
+¡Ya se fue a casa, pero prometió volver!
+
+4
+00:00:09,000 --> 00:00:11,500
+¿Hola, cómo estás?
+
+5
+00:00:12,000 --> 00:00:14,500
+No sé qué quieres decir.
+
+6
+00:00:15,000 --> 00:00:17,500
+¡Ya se fue a casa, pero prometió volver!
+
