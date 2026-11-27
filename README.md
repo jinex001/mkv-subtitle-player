@@ -4,7 +4,7 @@ Play MKV videos with subtitles — in your browser or as a Mac app. Subtitles in
 
 Files open on your device only. Nothing is uploaded, and the page makes no network requests.
 
-[한국어](README.ko.md)
+**Try it: https://jinex001.github.io/mkv-subtitle-player/** · [Mac app](https://github.com/jinex001/mkv-subtitle-player/releases/latest) · [한국어](README.ko.md)
 
 ## Features
 
@@ -34,8 +34,8 @@ Not supported: image-based subtitles (PGS, VobSub), ASS styling (colors, positio
 
 ## Use it
 
-- **Browser**: open `web/index.html` in Chrome, Edge or Firefox and drop an MKV on it. Safari can't play MKV.
-- **Mac app**: also opens files from Finder ("Open With", or drop on the Dock icon) and picks up subtitle files next to the movie with the same name (`Movie.srt`, `Movie.ko.smi`).
+- **Browser**: open https://jinex001.github.io/mkv-subtitle-player/ in Chrome, Edge or Firefox and drop an MKV on it (or open `web/index.html` locally). Safari can't play MKV.
+- **Mac app**: download from [Releases](https://github.com/jinex001/mkv-subtitle-player/releases/latest). It also opens files from Finder ("Open With", or drop on the Dock icon) and picks up subtitle files next to the movie with the same name (`Movie.srt`, `Movie.ko.smi`).
 
 ## Build the Mac app
 
@@ -74,3 +74,7 @@ tools/mkv2mp4.sh --burn Movie.mkv   # subtitles burned into the picture
 ## Add a language
 
 Copy the `en` block in `web/i18n.js`, translate it, and add the menu words in `mac/main.js`.
+
+## License
+
+MIT

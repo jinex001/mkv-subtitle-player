@@ -2,7 +2,7 @@
 
 MKV 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라우저에서 여는 웹 버전, MKV → MP4 변환 스크립트가 있어요.
 
-[English](README.md)
+**바로 써 보기: https://jinex001.github.io/mkv-subtitle-player/** · [맥 앱 받기](https://github.com/jinex001/mkv-subtitle-player/releases/latest) · [English](README.md)
 
 ## 할 수 있는 것
 
@@ -51,3 +51,7 @@ tools/mkv2mp4.sh --burn 영화.mkv     # 자막을 영상에 새김 (어디서�
 ```
 
 맥 앱은 `web/`을 그대로 가져다 써요(`npm start`·`pack`이 복사함). 플레이어는 `web/`에서만 고치면 돼요.
+
+## 라이선스
+
+MIT
