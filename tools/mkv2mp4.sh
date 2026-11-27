@@ -6,7 +6,8 @@
 #   ./mkv2mp4.sh --burn 영화.mkv                  자막을 영상에 새겨 넣음 (어디서나 보임, 느림)
 #   ./mkv2mp4.sh --burn --sub 2 영화.mkv          새겨 넣을 자막 고르기 (안쪽 글자 자막 순서, 1부터)
 #
-# 같은 폴더에 영화.srt / 영화.ko.srt 같은 자막 파일이 있으면 같이 넣음.
+# 같은 폴더에 영화.srt / 영화.ko.srt / 영화.smi 같은 자막 파일이 있으면 같이 넣음.
+# node가 있으면 옛 인코딩(EUC-KR, Windows-1251, Shift_JIS …) 자막을 판별해 UTF-8로 바꾸고(tools/prepare-sub.cjs), SMI는 언어별 자막으로 나눠 넣음.
 # 결과: 같은 폴더에 영화.mp4 (이미 있으면 영화 (mp4).mp4)
 # 필요: ffmpeg (맥: brew install ffmpeg)
 set -euo pipefail
@@ -25,6 +26,28 @@ done
 command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null || {
   echo "ffmpeg가 없어요. 맥이면: brew install ffmpeg"; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# 파일 이름의 언어 표시(ko, ru, eng …)를 MP4가 쓰는 세 글자 코드로
+lang3() {
+  case "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" in
+    ko|kor) echo kor ;; en|eng) echo eng ;; ja|jpn) echo jpn ;; zh|chi|zho) echo chi ;; es|spa) echo spa ;;
+    pt|por) echo por ;; de|ger|deu) echo ger ;; fr|fre|fra) echo fre ;; it|ita) echo ita ;; ru|rus) echo rus ;;
+    pl|pol) echo pol ;; tr|tur) echo tur ;; ar|ara) echo ara ;; he|heb) echo heb ;; el|gre|ell) echo gre ;;
+    nl|dut|nld) echo dut ;; sv|swe) echo swe ;; da|dan) echo dan ;; no|nor|nb|nob) echo nor ;; fi|fin) echo fin ;;
+    cs|cze|ces) echo cze ;; hu|hun) echo hun ;; ro|rum|ron) echo rum ;; uk|ukr) echo ukr ;; vi|vie) echo vie ;;
+    th|tha) echo tha ;; id|ind) echo ind ;; *) echo und ;;
+  esac
+}
+
+# 자막 파일을 ffmpeg용 UTF-8 파일로 ("경로|언어" 줄 출력). SMI는 언어별 SRT로 나눔. node가 없으면 그대로.
+prepare_sub() { # $1 원본, $2 임시 폴더, $3 이름 앞부분
+  if command -v node >/dev/null && [ -f "$SCRIPT_DIR/prepare-sub.cjs" ]; then
+    node "$SCRIPT_DIR/prepare-sub.cjs" "$1" "$2" "$3" && return
+  fi
+  echo "$1|"
+}
+
 # 스트림 목록: "번호|종류|코덱|언어" 한 줄씩
 streams() {
   ffprobe -v error -show_entries stream=index,codec_type,codec_name:stream_tags=language \
@@ -42,14 +65,23 @@ convert() {
   echo "▶ $in"
 
   local args=(-hide_banner -loglevel warning -stats -i "$in")
-  local tmp="" maps=() codecs=() vcount=0 acount=0 scount=0 textn=0 burnidx=-1 vcopy=1
+  local tmp maps=() codecs=() vcount=0 acount=0 scount=0 textn=0 burnidx=-1 vcopy=1
+  tmp=$(mktemp -d)
 
   # 같은 이름의 바깥 자막 파일 (영화.srt, 영화.ko.srt …)
-  local ext=() f
-  for f in "$base".srt "$base".*.srt "$base".vtt "$base".*.vtt "$base".ass "$base".*.ass; do
-    [ -f "$f" ] && ext+=("$f")
+  local ext=() extu=() extl=() f
+  local k=0 u
+  for f in "$base".srt "$base".*.srt "$base".smi "$base".*.smi "$base".vtt "$base".*.vtt "$base".ass "$base".*.ass; do
+    [ -f "$f" ] || continue
+    k=$((k+1))
+    local stem="${f%.*}" tag=""
+    [ "$stem" != "$base" ] && tag="${stem##*.}"
+    while IFS='|' read -r u ul; do
+      [ -n "$u" ] || continue
+      ext+=("$f"); extu+=("$u"); extl+=("$(lang3 "${ul:-$tag}")")
+      args+=(-sub_charenc UTF-8 -i "$u")
+    done < <(prepare_sub "$f" "$tmp" "ext$k")
   done
-  for f in ${ext[@]+"${ext[@]}"}; do args+=(-sub_charenc UTF-8 -i "$f"); done
 
   local line idx type codec lang
   while IFS='|' read -r idx type codec lang; do
@@ -91,12 +123,11 @@ convert() {
   if [ $burn -eq 1 ]; then
     # 자막을 새기려면 영상을 다시 인코딩해야 함
     # 파일 이름의 ' : 같은 글자가 필터를 깨지 않도록 단순한 이름의 임시 링크를 씀
-    tmp=$(mktemp -d)
     if [ $burnidx -ge 0 ]; then
       ln -s "$(cd "$(dirname "$in")" && pwd)/$(basename "$in")" "$tmp/in.mkv"
       args+=("${maps[@]}" -vf "subtitles=$tmp/in.mkv:si=$((subpick-1))")
     elif [ ${#ext[@]} -gt 0 ]; then
-      cp "${ext[0]}" "$tmp/sub.${ext[0]##*.}"
+      cp "${extu[0]}" "$tmp/sub.${ext[0]##*.}"
       args+=("${maps[@]}" -vf "subtitles=$tmp/sub.${ext[0]##*.}")
     else
       echo "  새길 글자 자막이 없어서 그냥 변환해요"; args+=("${maps[@]}")
@@ -113,10 +144,8 @@ convert() {
     codecs=("${c2[@]}")
   else
     args+=("${maps[@]}")
-    local n=1
-    for f in ${ext[@]+"${ext[@]}"}; do
-      local l=und
-      case "$f" in *.ko.*|*.kor.*) l=kor ;; *.en.*|*.eng.*) l=eng ;; *.de.*|*.ger.*|*.deu.*) l=ger ;; esac
+    local n=1 l
+    for l in ${extl[@]+"${extl[@]}"}; do
       args+=(-map "$n:0"); codecs+=(-c:s:$scount mov_text -metadata:s:s:$scount language=$l)
       scount=$((scount+1)); n=$((n+1))
     done

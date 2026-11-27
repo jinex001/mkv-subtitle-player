@@ -355,6 +355,121 @@ function report(tracks) {
   status(m + ' · ' + codecNote);
 }
 
+/* ---------- subtitles inside MP4 / MOV (ISO BMFF: tx3g "mov_text" and wvtt) ---------- */
+// walk boxes inside a byte range of an in-memory buffer
+function* boxes(u8, start, end) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let p = start;
+  while (p + 8 <= end) {
+    let size = dv.getUint32(p); const type = String.fromCharCode(u8[p + 4], u8[p + 5], u8[p + 6], u8[p + 7]);
+    let hdr = 8;
+    if (size === 1) { size = Number(dv.getBigUint64(p + 8)); hdr = 16; } else if (size === 0) size = end - p;
+    if (size < hdr || p + size > end) return;
+    yield { type, start: p + hdr, end: p + size };
+    p += size;
+  }
+}
+function find(u8, b, type) { for (const x of boxes(u8, b.start, b.end)) if (x.type === type) return x; return null; }
+function mdhdLang(code) { // packed ISO-639-2: three 5-bit letters
+  const s = String.fromCharCode(((code >> 10) & 31) + 0x60, ((code >> 5) & 31) + 0x60, (code & 31) + 0x60);
+  return /^[a-z]{3}$/.test(s) && s !== 'und' ? s : '';
+}
+function parseTrak(u8, trak) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const mdia = find(u8, trak, 'mdia'); if (!mdia) return null;
+  const tr = { type: 0, codec: '', lang: '', name: '' };
+  const mdhd = find(u8, mdia, 'mdhd');
+  if (mdhd) {
+    const v1 = u8[mdhd.start] === 1;
+    tr.timescale = dv.getUint32(mdhd.start + (v1 ? 20 : 12));
+    tr.lang = mdhdLang(dv.getUint16(mdhd.start + (v1 ? 32 : 20)));
+  }
+  const elng = find(u8, mdia, 'elng');
+  if (elng) tr.lang = new TextDecoder().decode(u8.subarray(elng.start + 4, elng.end)).replace(/\0+$/, '').split('-')[0] || tr.lang;
+  const hdlr = find(u8, mdia, 'hdlr');
+  const handler = hdlr ? String.fromCharCode(...u8.subarray(hdlr.start + 8, hdlr.start + 12)) : '';
+  if (hdlr) {
+    const n = new TextDecoder().decode(u8.subarray(hdlr.start + 24, hdlr.end)).replace(/\0+$/, '').trim();
+    if (n && !/handler|^(core media|apple|mp4|gpac|l-smash)/i.test(n)) tr.name = n; // skip generic muxer names
+  }
+  const stbl = find(u8, find(u8, mdia, 'minf') || mdia, 'stbl'); if (!stbl) return null;
+  const stsd = find(u8, stbl, 'stsd');
+  const fmt = stsd && stsd.start + 16 <= stsd.end ? String.fromCharCode(...u8.subarray(stsd.start + 12, stsd.start + 16)) : '';
+  tr.type = handler === 'vide' ? 1 : handler === 'soun' ? 2 : /^(sbtl|text|subt|clcp)$/.test(handler) ? 0x11 : 0;
+  tr.codec = (fmt === 'tx3g' || fmt === 'wvtt' || fmt === 'text') ? 'S_TEXT/' + fmt : fmt;
+  if (tr.type !== 0x11 || !/^S_TEXT/.test(tr.codec)) return tr;
+  // sample table: decode times, sizes and file offsets
+  const full = b => b && { start: b.start + 4, end: b.end }; // skip version/flags
+  const stts = full(find(u8, stbl, 'stts')), stsz = full(find(u8, stbl, 'stsz')), stsc = full(find(u8, stbl, 'stsc'));
+  const stco = full(find(u8, stbl, 'stco')), co64 = full(find(u8, stbl, 'co64'));
+  if (!stts || !stsz || !stsc || !(stco || co64)) return tr;
+  const fixed = dv.getUint32(stsz.start), count = dv.getUint32(stsz.start + 4);
+  const sizes = []; for (let i = 0; i < count; i++) sizes.push(fixed || dv.getUint32(stsz.start + 8 + i * 4));
+  const chunks = []; const cb = stco || co64, cn = dv.getUint32(cb.start);
+  for (let i = 0; i < cn; i++) chunks.push(co64 ? Number(dv.getBigUint64(cb.start + 4 + i * 8)) : dv.getUint32(cb.start + 4 + i * 4));
+  const scn = dv.getUint32(stsc.start), sc = [];
+  for (let i = 0; i < scn; i++) sc.push([dv.getUint32(stsc.start + 4 + i * 12), dv.getUint32(stsc.start + 8 + i * 12)]);
+  const offsets = []; let s = 0;
+  for (let c = 0; c < chunks.length && s < count; c++) {
+    let per = 0; for (const [first, n] of sc) if (c + 1 >= first) per = n;
+    let off = chunks[c];
+    for (let k = 0; k < per && s < count; k++, s++) { offsets.push(off); off += sizes[s]; }
+  }
+  const times = []; let tn = dv.getUint32(stts.start), dts = 0;
+  for (let i = 0; i < tn; i++) {
+    const n = dv.getUint32(stts.start + 4 + i * 8), d = dv.getUint32(stts.start + 8 + i * 8);
+    for (let k = 0; k < n; k++) { times.push([dts, d]); dts += d; }
+  }
+  tr.samples = offsets.map((o, i) => ({ off: o, size: sizes[i], t: (times[i] || [0, 0])[0], d: (times[i] || [0, 0])[1] }));
+  return tr;
+}
+function mp4SampleText(fmt, b) {
+  if (fmt === 'wvtt') { // boxes: vttc → payl (text); vtte = empty
+    let out = '';
+    for (const x of boxes(b, 0, b.length)) if (x.type === 'vttc') for (const y of boxes(b, x.start, x.end)) if (y.type === 'payl') out += new TextDecoder().decode(b.subarray(y.start, y.end));
+    return out;
+  }
+  if (b.length < 2) return '';
+  const n = (b[0] << 8) | b[1], body = b.subarray(2, 2 + n);
+  return body[0] === 0xFE && body[1] === 0xFF ? new TextDecoder('utf-16be').decode(body.subarray(2)) : new TextDecoder().decode(body);
+}
+async function scanMP4(file, gen) {
+  const R = new Reader(file), size = file.size;
+  // find moov among the top-level boxes (it can sit at the start or the end)
+  let pos = 0, moov = null;
+  while (pos + 8 <= size) {
+    await R.ensure(pos, 16);
+    const h = R.sub(pos, 16), dv = new DataView(h.buffer, h.byteOffset, h.byteLength);
+    let sz = dv.getUint32(0); const type = String.fromCharCode(h[4], h[5], h[6], h[7]);
+    if (sz === 1) sz = Number(dv.getBigUint64(8)); else if (sz === 0) sz = size - pos;
+    if (sz < 8) break;
+    if (type === 'moov') { const b = new Uint8Array(await file.slice(pos, pos + sz).arrayBuffer()); moov = { u8: b }; break; }
+    pos += sz;
+  }
+  if (!moov || gen !== scanGen) return;
+  const u8 = moov.u8, tracks = [];
+  for (const trak of boxes(u8, 8, u8.length)) if (trak.type === 'trak') { const tr = parseTrak(u8, trak); if (tr) tracks.push(tr); }
+  report(tracks);
+  const readable = tracks.filter(tr => tr.samples && tr.samples.length);
+  if (!readable.length) return;
+  const prog = $('prog'), pi = $('progi'); prog.hidden = false;
+  const first = subs.length;
+  readable.forEach((tr, i) => { tr.sub = { label: (tr.name || langName(tr.lang) || t('trackN', { n: i + 1 })).slice(0, 32), lang: tr.lang, cues: [] }; addSub(tr.sub); });
+  if (active < 0) select(first + bestOf(readable.map(tr => tr.sub)));
+  const all = readable.flatMap(tr => tr.samples.map(s => ({ tr, s }))).sort((a, b) => a.s.off - b.s.off);
+  let done = 0, lastUI = 0;
+  for (const { tr, s } of all) {
+    if (gen !== scanGen) return;
+    await R.ensure(s.off, s.size);
+    const text = mp4SampleText(tr.codec.slice(7), R.sub(s.off, s.size)).trim();
+    if (text) addCues(tr.sub, [{ s: s.t / tr.timescale, e: (s.t + Math.max(s.d, 1)) / tr.timescale, t: text }]);
+    if (++done && performance.now() - lastUI > 150) { lastUI = performance.now(); pi.style.width = (done / all.length * 100).toFixed(1) + '%'; renderChipsSoft(); }
+  }
+  pi.style.width = '100%'; setTimeout(() => { prog.hidden = true; }, 400);
+  renderChips();
+  status(t('done', { list: readable.map(tr => t('count', { label: tr.sub.label, n: tr.sub.cues.length })).join(' · ') }));
+}
+
 /* ---------- opening files ---------- */
 // A file opened by path in the Mac app: same shape as a browser File (name, size, slice, arrayBuffer)
 class PathFile {
@@ -392,7 +507,9 @@ async function openFiles(files) {
     document.title = vid.name.replace(/\.[^.]+$/, '') + ' · ' + t('appName');
     status(t('opening', { file: vid.name }));
     v.play().catch(() => { /* autoplay may be blocked */ });
-    if (/\.(mkv|webm)$/i.test(vid.name)) scanMKV(vid, scanGen).catch(e => status(t('scanStopped', { msg: e.message }), true));
+    const stop = e => status(t('scanStopped', { msg: e.message }), true);
+    if (/\.(mkv|webm)$/i.test(vid.name)) scanMKV(vid, scanGen).catch(stop);
+    else if (/\.(mp4|m4v|mov)$/i.test(vid.name)) scanMP4(vid, scanGen).catch(stop);
   }
   for (const f of subFiles) await openSubFile(f);
 }

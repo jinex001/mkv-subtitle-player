@@ -1,6 +1,6 @@
 # MKV Subtitle Player
 
-Play MKV videos with subtitles — in your browser or as a Mac app. Subtitles inside the MKV are read directly, and outside subtitle files in **any old encoding** (Windows-1251, Shift_JIS, EUC-KR, Big5, …) are detected automatically, so letters don't come out garbled.
+Play MKV and MP4 videos with subtitles — in your browser or as a Mac app. Subtitles inside the video are read directly, and outside subtitle files in **any old encoding** (Windows-1251, Shift_JIS, EUC-KR, Big5, …) are detected automatically, so letters don't come out garbled.
 
 Files open on your device only. Nothing is uploaded, and the page makes no network requests.
 
@@ -10,7 +10,7 @@ Files open on your device only. Nothing is uploaded, and the page makes no netwo
 
 ## Features
 
-- **Subtitles inside MKV**: text tracks (SRT, ASS/SSA, WebVTT, including zlib-compressed ones) are read straight from the file while it plays
+- **Subtitles inside the video**: MKV text tracks (SRT, ASS/SSA, WebVTT, including zlib-compressed ones) and MP4/MOV subtitles (mov_text/tx3g, WebVTT) are read straight from the file while it plays
 - **Subtitle files**: `.srt`, `.smi` / `.sami`, `.vtt`, `.ass` / `.ssa`
   - SMI files with several languages are split into one track per language
 - **Automatic encoding detection** for old subtitle files:
@@ -61,7 +61,7 @@ A copy you packed yourself on Linux also needs `codesign --force --deep --sign -
 
 ```bash
 brew install ffmpeg
-tools/mkv2mp4.sh Movie.mkv          # MP4 with switchable subtitles
+tools/mkv2mp4.sh Movie.mkv          # MP4 with switchable subtitles (old encodings and SMI handled, needs node)
 tools/mkv2mp4.sh --burn Movie.mkv   # subtitles burned into the picture
 ```
 
@@ -71,7 +71,7 @@ tools/mkv2mp4.sh --burn Movie.mkv   # subtitles burned into the picture
 | --- | --- |
 | `web/` | The player: `index.html`, `player.js`, `i18n.js` (interface text), `encoding.js` (encoding detection) |
 | `mac/` | Electron wrapper. `npm start` / `pack` copy `web/` into the app |
-| `tools/mkv2mp4.sh` | ffmpeg-based MKV → MP4 converter |
+| `tools/mkv2mp4.sh` | ffmpeg-based MKV → MP4 converter; `tools/prepare-sub.cjs` converts old encodings and splits SMI by language |
 | `tests/` | `node tests/encoding.test.cjs` checks encoding detection against sample files in 22 encodings/languages |
 
 ## Add a language

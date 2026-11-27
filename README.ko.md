@@ -1,6 +1,6 @@
 # MKV 자막 플레이어
 
-MKV 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라우저에서 여는 웹 버전, MKV → MP4 변환 스크립트가 있어요.
+MKV·MP4 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라우저에서 여는 웹 버전, MKV → MP4 변환 스크립트가 있어요.
 
 **바로 써 보기: https://jinex001.github.io/mkv-subtitle-player/** · [맥 앱 받기](https://github.com/jinex001/mkv-subtitle-player/releases/latest) · [English](README.md)
 
@@ -8,7 +8,7 @@ MKV 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라�
 
 ## 할 수 있는 것
 
-- MKV 안에 든 글자 자막(SRT·ASS·SSA·WebVTT, zlib 압축 포함)을 직접 읽어서 표시
+- 영상 안에 든 글자 자막을 직접 읽어서 표시: MKV(SRT·ASS·SSA·WebVTT, zlib 압축 포함), MP4·MOV(mov_text, WebVTT)
 - 따로 있는 자막 파일: `.srt` `.smi`/`.sami` `.vtt` `.ass`/`.ssa`
   - SMI는 언어(Class)마다 따로 나눠서 고를 수 있음 (한국어·영어 등)
   - 인코딩 자동 판별: UTF-8·UTF-16, EUC-KR, Shift_JIS, GBK, Big5, Windows-1250~1258, KOI8-R. 시스템 언어로 애매한 경우를 가르고, 직접 고를 수도 있음
@@ -25,7 +25,7 @@ MKV 영상을 자막과 함께 보는 플레이어. 맥 앱(Electron)과 브라�
 | `mac/` | 맥 앱. Finder "다음으로 열기"·Dock에 끌어다 놓기, 영화 옆 같은 이름 자막(`영화.srt`, `영화.ko.smi`) 자동으로 붙이기, ⌘O / ⇧⌘O |
 | `web/` | 웹 플레이어: `index.html`, `player.js`, `i18n.js`(화면 문구), `encoding.js`(인코딩 판별). Chrome·Edge·Firefox에서 열기. Safari는 MKV 재생 안 됨 |
 | `tests/` | `node tests/encoding.test.cjs`: 22가지 언어·인코딩 시험 파일로 인코딩 판별 확인 |
-| `tools/mkv2mp4.sh` | MKV → MP4 변환(ffmpeg). 영상은 가능하면 그대로 복사, 음성은 AAC, 글자 자막은 MP4 자막으로. `--burn`이면 자막을 영상에 새김. AirPlay·Apple 기기용 |
+| `tools/mkv2mp4.sh` | MKV → MP4 변환(ffmpeg). 영상은 가능하면 그대로 복사, 음성은 AAC, 글자 자막은 MP4 자막으로(옛 인코딩은 UTF-8로 바꾸고 SMI는 언어별로 나눔, node 필요). `--burn`이면 자막을 영상에 새김. AirPlay·Apple 기기용 |
 
 ## 맥 앱 만들기
 
