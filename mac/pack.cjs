@@ -20,4 +20,4 @@ packager({
       CFBundleTypeExtensions: ['mkv', 'webm', 'mp4', 'm4v', 'mov'],
     }],
   },
-}).then(out => console.log('만들어짐:', out.join(', ')));
+}).then(out => console.log('Built:', out.join(', ')));

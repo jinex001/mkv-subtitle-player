@@ -47,12 +47,13 @@ npm run pack:arm64   # Apple Silicon app in mac/dist/
 npm run pack:x64     # Intel app
 ```
 
-The app is not signed with an Apple Developer ID. The first time you open a downloaded copy:
+The app is not notarized by Apple, so macOS blocks a downloaded copy on first launch. Run once:
 
 ```bash
 xattr -cr "/Applications/MKV Subtitle Player.app"
-codesign --force --deep --sign - "/Applications/MKV Subtitle Player.app"
 ```
+
+A copy you packed yourself on Linux also needs `codesign --force --deep --sign - "/Applications/MKV Subtitle Player.app"`. Releases are built and signed ad hoc by `.github/workflows/release.yml` on every `v*` tag.
 
 ## Convert MKV to MP4 (for AirPlay and Apple devices)
 

@@ -35,12 +35,13 @@ npm run pack:arm64   # Apple Silicon 앱 → mac/dist/
 npm run pack:x64     # 인텔 맥 앱
 ```
 
-Apple 개발자 인증서로 서명하지 않은 앱이라, 다른 곳에서 받은 앱을 처음 열 땐 한 번 이렇게 해 줘야 해요.
+Apple 공증을 받지 않은 앱이라, 받은 앱을 처음 열 땐 한 번 이렇게 해 줘야 해요.
 
 ```bash
 xattr -cr "/Applications/MKV Subtitle Player.app"
-codesign --force --deep --sign - "/Applications/MKV Subtitle Player.app"
 ```
+
+리눅스에서 직접 묶은 앱은 `codesign --force --deep --sign - "/Applications/MKV Subtitle Player.app"`도 필요해요. 릴리스는 `v*` 태그를 올리면 `.github/workflows/release.yml`이 맥에서 빌드·서명해서 올려요.
 
 ## MP4로 바꾸기
 
