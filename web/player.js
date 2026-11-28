@@ -347,13 +347,57 @@ async function scanMKV(file, gen) {
 let codecNote = '';
 function report(tracks) {
   const vid = tracks.filter(x => x.type === 1).map(x => x.codec), aud = tracks.filter(x => x.type === 2).map(x => x.codec);
+  if (curVideo) curVideo.audio = aud[0];
   const img = tracks.filter(x => x.type === 0x11 && !/^S_TEXT/.test(x.codec)).length;
   const txt = tracks.filter(x => x.type === 0x11 && /^S_TEXT/.test(x.codec)).length;
   codecNote = t('codecs', { v: vid.join(', ') || t('none'), a: aud.join(', ') || t('none') });
   let m = txt ? t('found', { n: txt }) : t('noText');
   if (img) m += ' ' + t('imageSubs', { n: img });
   status(m + ' · ' + codecNote);
+  checkAudio(aud);
 }
+
+/* ---------- audio the engine can't decode (AC-3, E-AC-3, DTS, TrueHD) ---------- */
+const BAD_AUDIO = [[/^(A_AC3|ac-3)$/i, 'AC-3'], [/^(A_EAC3|ec-3)$/i, 'E-AC-3'], [/^(A_DTS|dts[a-z])/i, 'DTS'], [/^(A_TRUEHD|A_MLP|mlpa)/i, 'TrueHD']];
+let curVideo = null, fixing = false, resumeAt = null;
+function showAud(text, opts) {
+  const o = opts || {};
+  $('aud').hidden = !text; $('aud').classList.toggle('ok', !!o.ok);
+  $('audt').textContent = text || '';
+  $('fix').hidden = !o.button; $('fix').textContent = o.button || '';
+}
+function checkAudio(codecs) {
+  const list = codecs.filter(Boolean);
+  // only a problem when no audio track is playable (the browser plays the first one)
+  const first = list[0]; if (!first) return;
+  const bad = BAD_AUDIO.find(([re]) => re.test(first));
+  if (!bad) return;
+  if (MAC && MAC.fixAudio && curVideo && curVideo.path) showAud(t('audioNote', { codec: bad[1] }), { button: t('fixAudio') });
+  else showAud(t('audioWeb', { codec: bad[1] }));
+}
+$('fix').onclick = async () => {
+  if (fixing) { MAC.fixCancel(); return; }
+  if (!curVideo || !curVideo.path) return;
+  fixing = true;
+  const orig = curVideo.path, at = v.currentTime;
+  v.pause();
+  showAud(t('fixing', { p: 0 }), { button: t('fixCancel'), ok: true });
+  let r;
+  try { r = await MAC.fixAudio(orig, p => { if (fixing) $('audt').textContent = t('fixing', { p }); }); }
+  catch (e) { r = { ok: false, error: e.message }; }
+  fixing = false;
+  if (r.ok) {
+    resumeAt = at;
+    await openPaths([r.out, ...MAC.sidecars(orig)]);
+    showAud(t('fixDone', { file: r.out.split('/').pop() }), { ok: true });
+  } else if (r.error === 'cancelled') {
+    checkAudio([curVideo.audio]);
+  } else if (r.error === 'noffmpeg') {
+    showAud(t('needFfmpeg'), { button: t('fixAudio') });
+  } else {
+    showAud(t('fixFail', { msg: r.error }), { button: t('fixAudio') });
+  }
+};
 
 /* ---------- subtitles inside MP4 / MOV (ISO BMFF: tx3g "mov_text" and wvtt) ---------- */
 // walk boxes inside a byte range of an in-memory buffer
@@ -503,7 +547,11 @@ async function openFiles(files) {
       const have = new Set(subFiles.map(f => f.name.toLowerCase()));
       for (const sp of MAC.sidecars(vpath)) { const pf = new PathFile(sp); if (!have.has(pf.name.toLowerCase())) subFiles.push(pf); }
     }
+    if (fixing) MAC.fixCancel();
+    curVideo = { path: vpath, name: vid.name };
+    showAud('');
     v.src = videoURL; $('drop').hidden = true;
+    if (resumeAt != null) { const at = resumeAt; resumeAt = null; v.addEventListener('loadedmetadata', () => { v.currentTime = at; }, { once: true }); }
     document.title = vid.name.replace(/\.[^.]+$/, '') + ' · ' + t('appName');
     status(t('opening', { file: vid.name }));
     v.play().catch(() => { /* autoplay may be blocked */ });

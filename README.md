@@ -27,12 +27,13 @@ Files open on your device only. Nothing is uploaded, and the page makes no netwo
 
   Your system languages break near-ties. You can always pick the encoding by hand.
 - **Picks your language**: the interface follows your OS / browser language, and the subtitle track in your language is turned on first
+- **Fix sound** (Mac app): AC-3, E-AC-3, DTS and TrueHD audio can't be played by the browser engine. The app notices, and one click re-encodes just the audio to AAC with your ffmpeg (`brew install ffmpeg`) and continues where you were
 - Subtitle size (scales with the video, also in full screen), timing ±0.25 s, background on/off
 - Shortcuts: `Space` play/pause · `←` `→` 5 s · `Z` `X` timing · `−` `+` size · `F` full screen
 
 Interface languages: English, 한국어, 日本語, 简体中文, 繁體中文, Español, Português, Deutsch, Français.
 
-Not supported: image-based subtitles (PGS, VobSub), ASS styling (colors, positions), and audio the browser engine can't decode (AC-3, DTS).
+Not supported: image-based subtitles (PGS, VobSub) and ASS styling (colors, positions). In the browser, AC-3/DTS audio stays silent (the Mac app can fix it).
 
 ## Use it
 

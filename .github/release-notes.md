@@ -8,6 +8,11 @@ The app isn't notarized by Apple yet, so macOS blocks it on first launch. After 
 xattr -cr "/Applications/MKV Subtitle Player.app"
 ```
 
+### New in 1.1.0
+- **Fix sound**: movies with AC-3, E-AC-3, DTS or TrueHD audio played silently. The app now notices and offers *Fix sound*: it re-encodes only the audio to AAC with ffmpeg (install once with `brew install ffmpeg`), saves `Movie (AAC).mkv` next to the original and continues where you were
+- **Subtitles inside MP4/MOV files** (mov_text, WebVTT) are shown, like MKV subtitle tracks
+- Subtitle files named `Movie.ru.srt` show up as "Russian · Movie"
+
 ### What's in it
 - Subtitles inside MKV files (SRT, ASS/SSA, WebVTT) are read while the video plays
 - `.srt`, `.smi`/`.sami`, `.vtt`, `.ass`/`.ssa` files; multi-language SMI is split per language

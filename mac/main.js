@@ -1,6 +1,8 @@
 // MKV Subtitle Player — Electron main process
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 // Menu and dialog text follows the macOS language (the page itself uses navigator.languages)
 const M = {
@@ -63,6 +65,55 @@ ipcMain.handle('pick', async (e, kind) => {
   const r = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], filters });
   return r.canceled ? [] : r.filePaths;
 });
+
+/* ---------- Fix sound: re-encode AC-3 / DTS / TrueHD audio to AAC with the user's ffmpeg ---------- */
+// GUI apps don't get the shell PATH, so look in the usual Homebrew / MacPorts places too
+function findFfmpeg() {
+  const dirs = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin', '/usr/bin', ...(process.env.PATH || '').split(':')];
+  for (const d of dirs) { const f = path.join(d, 'ffmpeg'); try { fs.accessSync(f, fs.constants.X_OK); return f; } catch (e) { /* next */ } }
+  return null;
+}
+let fixProc = null;
+const secs = h => { const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(h); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0; };
+ipcMain.handle('fix-audio', (e, input) => new Promise(resolve => {
+  const ffmpeg = findFfmpeg();
+  if (!ffmpeg) return resolve({ ok: false, error: 'noffmpeg' });
+  const ext = /\.(mp4|m4v|mov)$/i.test(input) ? '.mp4' : '.mkv';
+  const base = path.basename(input).replace(/\.[^.]+$/, '') + ' (AAC)';
+  // next to the movie, or in the app's folder when that one isn't writable
+  let dir = path.dirname(input);
+  try { fs.accessSync(dir, fs.constants.W_OK); } catch (err) { dir = path.join(app.getPath('userData'), 'Fixed'); fs.mkdirSync(dir, { recursive: true }); }
+  const out = path.join(dir, base + ext), part = path.join(dir, base + '.partial' + ext);
+  try { if (fs.statSync(out).size > 0) return resolve({ ok: true, out }); } catch (err) { /* not made yet */ }
+  const args = ['-hide_banner', '-nostdin', '-y', '-i', input];
+  if (ext === '.mkv') args.push('-map', '0', '-c', 'copy');
+  else args.push('-map', '0:v', '-map', '0:a', '-map', '0:s?', '-c', 'copy', '-c:s', 'mov_text', '-movflags', '+faststart');
+  args.push('-c:a', 'aac', '-b:a', '256k', part);
+  const p = spawn(ffmpeg, args);
+  fixProc = p;
+  let dur = 0, last = -1, tail = '';
+  p.stderr.on('data', d => {
+    const s = d.toString(); tail = (tail + s).slice(-2000);
+    if (!dur) { const m = /Duration: (\d+:\d+:\d+(?:\.\d+)?)/.exec(s); if (m) dur = secs(m[1]); }
+    const all = [...s.matchAll(/time=(\d+:\d+:\d+(?:\.\d+)?)/g)];
+    if (dur && all.length) {
+      const pct = Math.min(99, Math.floor(secs(all[all.length - 1][1]) / dur * 100));
+      if (pct !== last) { last = pct; if (!e.sender.isDestroyed()) e.sender.send('fix-progress', pct); }
+    }
+  });
+  p.on('error', err => { fixProc = null; resolve({ ok: false, error: err.message }); });
+  p.on('close', code => {
+    const cancelled = p.killedByUser; fixProc = null;
+    if (code === 0 && !cancelled) {
+      try { fs.renameSync(part, out); return resolve({ ok: true, out }); } catch (err) { return resolve({ ok: false, error: err.message }); }
+    }
+    try { fs.unlinkSync(part); } catch (err) { /* nothing written */ }
+    const msg = tail.trim().split('\n').filter(l => /error|invalid|no such|denied/i.test(l)).pop() || ('ffmpeg exit ' + code);
+    resolve({ ok: false, error: cancelled ? 'cancelled' : msg.trim() });
+  });
+}));
+ipcMain.on('fix-cancel', () => { if (fixProc) { fixProc.killedByUser = true; fixProc.kill('SIGTERM'); } });
+app.on('before-quit', () => { if (fixProc) { fixProc.killedByUser = true; fixProc.kill('SIGTERM'); } });
 
 function menu() {
   const T = texts();

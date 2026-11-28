@@ -23,5 +23,12 @@ contextBridge.exposeInMainWorld('mac', {
     } catch (e) { return []; }
   },
   pick: kind => ipcRenderer.invoke('pick', kind),
+  // re-encode the audio to AAC with the user's ffmpeg; onProgress gets 0–99
+  fixAudio: (p, onProgress) => {
+    const h = (e, pct) => { try { onProgress(pct); } catch (err) { /* page reloaded */ } };
+    ipcRenderer.on('fix-progress', h);
+    return ipcRenderer.invoke('fix-audio', p).finally(() => ipcRenderer.removeListener('fix-progress', h));
+  },
+  fixCancel: () => ipcRenderer.send('fix-cancel'),
   on: (ch, fn) => ipcRenderer.on(ch, (e, a) => fn(a)),
 });

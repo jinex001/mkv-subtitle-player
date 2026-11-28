@@ -1,7 +1,7 @@
 {
   "name": "mkv-subtitle-player",
   "productName": "MKV Subtitle Player",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Play MKV videos with subtitles on macOS",
   "main": "main.js",
   "private": true,

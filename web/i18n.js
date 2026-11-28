@@ -37,6 +37,10 @@
       opening: 'Opening {file}…', scanStopped: 'Stopped reading subtitles: {msg}',
       cantPlay: 'This browser can’t play this video. Try Chrome or Edge.', cantPlayApp: 'This video’s format can’t be played.',
       cantOpen: 'Can’t open file: {p}',
+      fixAudio: 'Fix sound', fixCancel: 'Cancel', audioNote: 'This audio ({codec}) can’t be played here, so there’s no sound.',
+      audioWeb: 'This audio ({codec}) can’t be played in the browser, so there’s no sound. The Mac app can fix it, or convert it with ffmpeg: ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: 'Fixing the sound… {p}%', fixDone: 'Sound fixed. Saved as {file}.', fixFail: 'Couldn’t fix the sound: {msg}',
+      needFfmpeg: 'Fixing the sound needs ffmpeg. Install it in Terminal with: brew install ffmpeg',
     },
     ko: {
       appName: 'MKV 자막 플레이어', appNameHtml: 'MKV <b>자막</b> 플레이어',
@@ -69,6 +73,10 @@
       opening: '{file} 여는 중…', scanStopped: '자막을 읽다가 멈췄어요: {msg}',
       cantPlay: '이 브라우저가 영상을 재생하지 못해요. Chrome이나 Edge에서 열어 보세요.', cantPlayApp: '이 영상 형식은 재생할 수 없어요.',
       cantOpen: '파일을 열 수 없어요: {p}',
+      fixAudio: '소리 고치기', fixCancel: '취소', audioNote: '이 음성 형식({codec})은 여기서 재생할 수 없어서 소리가 안 나요.',
+      audioWeb: '이 음성 형식({codec})은 브라우저에서 재생할 수 없어서 소리가 안 나요. 맥 앱에서 고치거나 ffmpeg로 바꿔 보세요: ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: '소리 고치는 중… {p}%', fixDone: '소리를 고쳤어요. {file}로 저장했어요.', fixFail: '소리를 고치지 못했어요: {msg}',
+      needFfmpeg: '소리를 고치려면 ffmpeg가 필요해요. 터미널에서 설치하세요: brew install ffmpeg',
     },
     ja: {
       appName: 'MKV字幕プレーヤー', appNameHtml: 'MKV<b>字幕</b>プレーヤー',
@@ -101,6 +109,10 @@
       opening: '{file} を開いています…', scanStopped: '字幕の読み込みが止まりました：{msg}',
       cantPlay: 'このブラウザではこの動画を再生できません。ChromeかEdgeで開いてください。', cantPlayApp: 'この動画の形式は再生できません。',
       cantOpen: 'ファイルを開けません：{p}',
+      fixAudio: '音声を修正', fixCancel: 'キャンセル', audioNote: 'この音声形式（{codec}）はここでは再生できないため、音が出ません。',
+      audioWeb: 'この音声形式（{codec}）はブラウザで再生できないため、音が出ません。Macアプリで修正するか、ffmpegで変換してください：ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: '音声を修正中… {p}%', fixDone: '音声を修正しました。{file} として保存しました。', fixFail: '音声を修正できませんでした：{msg}',
+      needFfmpeg: '音声の修正にはffmpegが必要です。ターミナルでインストールしてください：brew install ffmpeg',
     },
     'zh-Hans': {
       appName: 'MKV 字幕播放器', appNameHtml: 'MKV <b>字幕</b>播放器',
@@ -133,6 +145,10 @@
       opening: '正在打开 {file}…', scanStopped: '读取字幕时停止：{msg}',
       cantPlay: '此浏览器无法播放该视频。请在 Chrome 或 Edge 中打开。', cantPlayApp: '无法播放此视频格式。',
       cantOpen: '无法打开文件：{p}',
+      fixAudio: '修复声音', fixCancel: '取消', audioNote: '此音频格式（{codec}）无法在这里播放，所以没有声音。',
+      audioWeb: '此音频格式（{codec}）无法在浏览器中播放，所以没有声音。可以用 Mac 应用修复，或用 ffmpeg 转换：ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: '正在修复声音… {p}%', fixDone: '声音已修复，已保存为 {file}。', fixFail: '无法修复声音：{msg}',
+      needFfmpeg: '修复声音需要 ffmpeg。请在终端中安装：brew install ffmpeg',
     },
     'zh-Hant': {
       appName: 'MKV 字幕播放器', appNameHtml: 'MKV <b>字幕</b>播放器',
@@ -165,6 +181,10 @@
       opening: '正在開啟 {file}…', scanStopped: '讀取字幕時停止：{msg}',
       cantPlay: '這個瀏覽器無法播放這部影片。請在 Chrome 或 Edge 中開啟。', cantPlayApp: '無法播放這種影片格式。',
       cantOpen: '無法開啟檔案：{p}',
+      fixAudio: '修正聲音', fixCancel: '取消', audioNote: '這種音訊格式（{codec}）無法在這裡播放，所以沒有聲音。',
+      audioWeb: '這種音訊格式（{codec}）無法在瀏覽器中播放，所以沒有聲音。可以用 Mac App 修正，或用 ffmpeg 轉換：ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: '正在修正聲音… {p}%', fixDone: '聲音已修正，已儲存為 {file}。', fixFail: '無法修正聲音：{msg}',
+      needFfmpeg: '修正聲音需要 ffmpeg。請在終端機中安裝：brew install ffmpeg',
     },
     es: {
       appName: 'Reproductor de subtítulos MKV', appNameHtml: 'Reproductor de <b>subtítulos</b> MKV',
@@ -197,6 +217,10 @@
       opening: 'Abriendo {file}…', scanStopped: 'Se detuvo la lectura de subtítulos: {msg}',
       cantPlay: 'Este navegador no puede reproducir el vídeo. Prueba con Chrome o Edge.', cantPlayApp: 'No se puede reproducir el formato de este vídeo.',
       cantOpen: 'No se puede abrir el archivo: {p}',
+      fixAudio: 'Arreglar sonido', fixCancel: 'Cancelar', audioNote: 'Este formato de audio ({codec}) no se puede reproducir aquí, por eso no hay sonido.',
+      audioWeb: 'Este formato de audio ({codec}) no se puede reproducir en el navegador, por eso no hay sonido. La app de Mac puede arreglarlo, o conviértelo con ffmpeg: ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: 'Arreglando el sonido… {p} %', fixDone: 'Sonido arreglado. Guardado como {file}.', fixFail: 'No se pudo arreglar el sonido: {msg}',
+      needFfmpeg: 'Para arreglar el sonido hace falta ffmpeg. Instálalo en Terminal con: brew install ffmpeg',
     },
     pt: {
       appName: 'Player de legendas MKV', appNameHtml: 'Player de <b>legendas</b> MKV',
@@ -229,6 +253,10 @@
       opening: 'Abrindo {file}…', scanStopped: 'A leitura das legendas parou: {msg}',
       cantPlay: 'Este navegador não consegue reproduzir o vídeo. Tente o Chrome ou o Edge.', cantPlayApp: 'Não é possível reproduzir o formato deste vídeo.',
       cantOpen: 'Não foi possível abrir o arquivo: {p}',
+      fixAudio: 'Corrigir som', fixCancel: 'Cancelar', audioNote: 'Este formato de áudio ({codec}) não pode ser reproduzido aqui, por isso não há som.',
+      audioWeb: 'Este formato de áudio ({codec}) não pode ser reproduzido no navegador, por isso não há som. O app para Mac pode corrigir, ou converta com ffmpeg: ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: 'Corrigindo o som… {p}%', fixDone: 'Som corrigido. Salvo como {file}.', fixFail: 'Não foi possível corrigir o som: {msg}',
+      needFfmpeg: 'Para corrigir o som é preciso o ffmpeg. Instale no Terminal com: brew install ffmpeg',
     },
     de: {
       appName: 'MKV-Untertitel-Player', appNameHtml: 'MKV-<b>Untertitel</b>-Player',
@@ -261,6 +289,10 @@
       opening: '{file} wird geöffnet …', scanStopped: 'Lesen der Untertitel abgebrochen: {msg}',
       cantPlay: 'Dieser Browser kann das Video nicht abspielen. Versuche es mit Chrome oder Edge.', cantPlayApp: 'Dieses Videoformat kann nicht abgespielt werden.',
       cantOpen: 'Datei kann nicht geöffnet werden: {p}',
+      fixAudio: 'Ton reparieren', fixCancel: 'Abbrechen', audioNote: 'Dieses Tonformat ({codec}) kann hier nicht abgespielt werden, deshalb gibt es keinen Ton.',
+      audioWeb: 'Dieses Tonformat ({codec}) kann im Browser nicht abgespielt werden, deshalb gibt es keinen Ton. Die Mac-App kann es reparieren, oder wandle es mit ffmpeg um: ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: 'Ton wird repariert … {p} %', fixDone: 'Ton repariert. Gespeichert als {file}.', fixFail: 'Ton konnte nicht repariert werden: {msg}',
+      needFfmpeg: 'Zum Reparieren des Tons wird ffmpeg gebraucht. Im Terminal installieren mit: brew install ffmpeg',
     },
     fr: {
       appName: 'Lecteur de sous-titres MKV', appNameHtml: 'Lecteur de <b>sous-titres</b> MKV',
@@ -293,6 +325,10 @@
       opening: 'Ouverture de {file}…', scanStopped: 'Lecture des sous-titres interrompue : {msg}',
       cantPlay: 'Ce navigateur ne peut pas lire cette vidéo. Essayez Chrome ou Edge.', cantPlayApp: 'Le format de cette vidéo ne peut pas être lu.',
       cantOpen: 'Impossible d’ouvrir le fichier : {p}',
+      fixAudio: 'Réparer le son', fixCancel: 'Annuler', audioNote: 'Ce format audio ({codec}) ne peut pas être lu ici, d’où l’absence de son.',
+      audioWeb: 'Ce format audio ({codec}) ne peut pas être lu dans le navigateur, d’où l’absence de son. L’app Mac peut le réparer, ou convertissez-le avec ffmpeg : ffmpeg -i in.mkv -map 0 -c copy -c:a aac out.mkv',
+      fixing: 'Réparation du son… {p} %', fixDone: 'Son réparé. Enregistré sous {file}.', fixFail: 'Impossible de réparer le son : {msg}',
+      needFfmpeg: 'Pour réparer le son, ffmpeg est nécessaire. Installez-le dans le Terminal avec : brew install ffmpeg',
     },
   };
 
